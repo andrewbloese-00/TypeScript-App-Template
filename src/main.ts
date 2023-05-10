@@ -5,6 +5,7 @@ import Landing from './templates/Landing'
 import Login, { LoginInit } from './templates/Login'
 import Register from './templates/Register'
 import Forgot from './templates/Forgot'
+import Dashboard from './templates/Dashboard'
 
 //listeners
 import LoginListeners from './listeners/LoginListeners'
@@ -83,7 +84,7 @@ function App(){
   app.addRoute("login",Login,LoginListeners,LoginInit)
   app.addRoute("register",Register,RegisterListeners)
   app.addRoute("forgot",Forgot,ForgotListeners)
-  
+  app.addRoute("dashboard",Dashboard,[])
   //start must be called after all routes have been declared
   app.start()
 }

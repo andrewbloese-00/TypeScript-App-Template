@@ -152,6 +152,7 @@ export class BlazeRenderer {
      * @returns 
      */
     addRoute(path:string|RegExp, template:()=>string, listeners:IListener[],initializer=()=>{}){
+        console.log('Adding Route: ', path)
         this._routes.push({
             path, template, listeners,init: initializer
         })

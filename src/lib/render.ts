@@ -6,7 +6,7 @@ interface IRoute {
     path: string | RegExp
     listeners: IListener[]
     template: ()=>string,
-    init: ()=>void|(()=>Promise<void>)
+    init: ()=>void|(()=>Promise<void>)|(()=>any)|(()=>Promise<any>)
 
 }
 export interface IListener {   
@@ -20,15 +20,16 @@ export class BlazeRenderer {
     _root:Element;
     _routes:IRoute[]
     _currentRoute:IRoute | null;
-    _hashChange:(e:HashChangeEvent)=>void
+    _hashChange:(e:HashChangeEvent)=>void|(Promise<void>)
 
 
-    _render(route:IRoute){
+    async _render(route:IRoute){
         console.time("render")
         this._cleanup();
         this._root.innerHTML = route.template()
 
-        route.init()
+        await route.init()
+        
         for(let listener of route.listeners){
             const { type , mode , handler, target } = listener
             switch(mode){
@@ -48,6 +49,7 @@ export class BlazeRenderer {
         }
         this._currentRoute = route
         this._useCustomAnchors()
+        console.timeEnd("render")
       
       
     }
@@ -127,11 +129,11 @@ export class BlazeRenderer {
             throw new Error("Invalid root selector: " + rootSelector + ".\nEnsure that the element is present on the page before initializing the render client.")
         }
         this._routes = []
-        this._hashChange = (e=>{
+        this._hashChange = (async e=>{
             const routeMatch = this._findRoute(window.location.hash.split("#").pop() || "")
 
             if(routeMatch){
-                this._render(routeMatch)
+                await this._render(routeMatch)
             }
             
 

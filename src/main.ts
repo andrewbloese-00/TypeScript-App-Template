@@ -1,11 +1,11 @@
 import './style.css'
 
 //templates
-import Landing from './templates/Landing'
+import Landing, { LandingInit } from './templates/Landing'
 import Login, { LoginInit } from './templates/Login'
 import Register from './templates/Register'
 import Forgot from './templates/Forgot'
-import Dashboard from './templates/Dashboard'
+import Dashboard, { DashboardInit } from './templates/Dashboard'
 
 //listeners
 import LoginListeners from './listeners/LoginListeners'
@@ -17,7 +17,12 @@ import ForgotListeners from './listeners/ForgotListeners'
 import { toaster } from './lib/Toaster'
 import { BlazeRenderer } from './lib/render'
 import state from './lib/state'
-import { auth  } from './lib/firebase-client'
+import { auth, db  } from './lib/firebase-client'
+import DashboardListeners from './listeners/DashboardListeners'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import Account, { AccountInit } from './templates/Account'
+import AccountListeners from './listeners/AccountListeners'
+import { signOut } from 'firebase/auth'
 
 //shorthand for local storage access
 const ls = window.localStorage
@@ -26,7 +31,7 @@ const ls = window.localStorage
 const navbar = document.querySelector("#navigation")!
 
 //*OPTIONAL - sets containing protected and nonuser specific routes
-const PROTECTED = new Set(["dashboard","create"])
+const PROTECTED = new Set(["dashboard","account"])
 const NONUSER_ONLY = new Set(["register","login","forgot"])
 
 
@@ -39,7 +44,7 @@ auth.onAuthStateChanged((user)=>{
   if(user){//handle has user
     const k = window.location.hash.split("#").pop() || ""
     const stored = {
-      name: user.displayName || "N / A",
+      username: user.displayName || "N / A",
       email: user.email || "N / A",
       uid: user.uid,
     }
@@ -48,11 +53,18 @@ auth.onAuthStateChanged((user)=>{
     ls.setItem("user", JSON.stringify(stored))
     navbar!.innerHTML = `
     <a href="#dashboard">Dashboard</a>
+    <a href="#account">Account</a>
+    <button id="logoutButton">Sign Out</button>
     `
     if(NONUSER_ONLY.has(k)){
       toaster.add("info",`Must be non user to access ${window.location.hash}`)
       window.location.hash = "#"
     }
+
+    document.querySelector("#logoutButton")!.addEventListener("click",async (e)=> {
+      await signOut(auth)
+    })
+
     //end handle has user
   } else { //handle no user
 
@@ -68,7 +80,7 @@ auth.onAuthStateChanged((user)=>{
 `
 
     //update state / storage
-    state.purge("userData")
+    // state.purge("userData")
     state.set("loggedIn",false)
     ls.removeItem("user")
   }
@@ -78,15 +90,19 @@ auth.onAuthStateChanged((user)=>{
 function App(){
   //initialize app
   const app = new BlazeRenderer("#app")
-  
   //define routes
   app.addRoute("",Landing,LandingListeners )
   app.addRoute("login",Login,LoginListeners,LoginInit)
   app.addRoute("register",Register,RegisterListeners)
   app.addRoute("forgot",Forgot,ForgotListeners)
-  app.addRoute("dashboard",Dashboard,[])
+  app.addRoute("dashboard",Dashboard,DashboardListeners, DashboardInit)
+  app.addRoute("account",Account,AccountListeners,AccountInit)
   //start must be called after all routes have been declared
   app.start()
+  setInterval(()=>{
+    state._DEBUG_DUMP()
+
+  },10000)
 }
 
 
@@ -94,6 +110,10 @@ function App(){
 window.addEventListener("DOMContentLoaded",()=>{ 
   App()
 })
+
+
+
+
 
 
 

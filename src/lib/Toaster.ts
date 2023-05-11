@@ -17,6 +17,7 @@ class Toaster {
         this.root.style.justifyContent = "center"
         this.root.style.alignItems= "center"
         this.root.style.gap = "20px"
+        this.root.style.zIndex = "200"
         
         if(!this.root) throw new Error("Toaster failed to initialize")
     }

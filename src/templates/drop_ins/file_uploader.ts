@@ -1,7 +1,8 @@
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "../../lib/firebase-client";
-import { IListener } from "../../lib/render";
 import { toaster } from "../../lib/Toaster";
+import { ConfirmButton } from "./confirm_button";
+import state from "../../lib/state";
 
 
 function safeName(filename:string){ 
@@ -10,52 +11,39 @@ function safeName(filename:string){
 }
 
 
-interface DragAndDropUploaderParams { 
-    areaID:string, 
+interface UploaderParams { 
     formID:string,
-    inputID:string
+    inputID:string,
+    multi:boolean,
+    prompt?:string,
+    secure?:boolean,
+    submitHandler:(()=>Promise<void>)
+
+
 }
 
-export const applyListeners = ( params: DragAndDropUploaderParams) => { 
+
+function curry(fn:Function){
+    return function h(_author:string){
+        return function g(files:FileList){
+            return fn(_author,files)
+        }
+    }
+}
+
+
+
+
+export const applyUploaderListeners = ( params: UploaderParams) => { 
     const fileInput:HTMLInputElement|null = document.querySelector("#"+params.inputID)
-    const dropArea = document.querySelector(params.areaID)
-    if(!dropArea || dropArea === null) {
-        console.error("Failed to find drop area")
-        return
-    }
-    function preventDefaults (e:Event) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    ['dragenter', 'dragover', 'dragleave', 'drop']
-        .forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false)
-        })
-
-    function highlight(e:Event) {
-        dropArea!.classList.add('highlight')
-    }
-        
-    function unhighlight(e:Event) {
-        dropArea!.classList.remove('highlight')
-    }
-    ['dragenter', 'dragover'].forEach(eventName => {
-         dropArea.addEventListener(eventName, highlight, false)
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, unhighlight, false)
-    });
-
-    dropArea.addEventListener('drop', (e)=>handleDrop, false)
-
-
-    async function handleFiles(files:FileList){
+    async function handleFiles(_author:string="public", files:FileList){
+        const submitButton:HTMLButtonElement = document.querySelector("button[type='submit']")!
         let F = [...files]
         let jobs = []
+        submitButton.disabled = true
         for(let i = 0; i< F.length ; i++ ){
             let name = safeName(F[i].name)
-            const storageRef = ref(storage,`uploads/${name}`)
+            const storageRef = ref(storage,`uploads/${_author}/${name}`)
             jobs.push(uploadBytes(storageRef,F[i]))
         }
         const uploadResults = await Promise.all(jobs)
@@ -63,51 +51,55 @@ export const applyListeners = ( params: DragAndDropUploaderParams) => {
         for(let j = 0; j < uploadResults.length; j++){
             gets.push(getDownloadURL(
                 uploadResults[j].ref
-            ))
+                ))
+            }
+            
+        const results = await Promise.all(gets)
+        console.log('uploads',results)
+        state.set("uploadResults",results)
+        submitButton.disabled = false
+    }
+    let handler = curry(handleFiles)("public")
+    if(params.secure === true){
+        const currentUser = JSON.parse(localStorage.getItem("user")!)
+        if(!currentUser) {
+            toaster.add("error","Must be logged in to upload files.")
+            return 
         }
-
-        return Promise.all(gets)
+        handler = curry(handleFiles)(currentUser.uid)
     }
 
-
-    function handleDrop(e:DragEvent) {
-        let dt = e.dataTransfer!
-        fileInput!.files = dt.files
-    }
 
     const form = document.querySelector("#"+params.formID)!
-    form.addEventListener("submit",(e)=>{
-        e.preventDefault()
+    fileInput!.addEventListener("change",(e)=>{
         if(!fileInput?.files){
             toaster.add("error","Failed to upload images")
             return 
         } else { 
-            handleFiles(fileInput.files)
+            handler(fileInput.files)
         }
     })
-        
-
-
-
-        
-      
-
-
-
+    form.addEventListener("submit",async (e)=>{
+        e.preventDefault()
+        await params.submitHandler()
+    })
 }
 
 
-const DragAndDropUploader = (params:DragAndDropUploaderParams) => {
-    const {areaID, formID, inputID} = params
+const FileUploader = (params:UploaderParams) => {
+    const { formID, inputID, multi} = params
     return `
-    <div id="${areaID}" class="drop-region">
+
     <form class="drag_uploader_form" id="${formID}">
-        <p>Upload multiple files with the file dialog or by dragging and dropping images onto the dashed region</p>
-        <input type="file" id="${inputID}" multiple accept="image/*" onchange="handleFiles(this.files)">
-        <label class="button" for="fileElem">Select some files</label>
+        <h2>${params.prompt || "Use the choose file button to pick your file(s)"}</h2>
+        <input type="file" id="${inputID}" ${multi ? "multiple" : ""} accept="image/*">
+        ${ConfirmButton(true,"submitFileUpload","Upload", "⬆️",false)}
     </form>
-    </div>
+
 
     
     `
 }
+
+
+export default FileUploader

@@ -3,7 +3,6 @@ type ValidListItemControl = "add" | "view" | "delete" | "edit"
 
 
 
-const MOOD_ENUM = ["😭","😞","😕","😐","😌","😀","🤩"]
 
 interface ListItemInteractiveControl { 
     controlType:ValidListItemControl,
@@ -16,9 +15,11 @@ interface ListItemInteractiveParams{
     main_content:string,
     id:string,
     controls:ListItemInteractiveControl[]
+    background?: string,
+    color?:string
 }
-export function ListItemInteractive(params:ListItemInteractiveParams){
 
+export function ListItemInteractive(params:ListItemInteractiveParams){
     let controls = params.controls.map(control=>{
         return `
             <button 
@@ -41,7 +42,9 @@ export function ListItemInteractive(params:ListItemInteractiveParams){
     })
 
 
-    return `<div class="list-item-interactive" id="${params.id}">
+    return `<div class="list-item-interactive" id="${params.id}"
+    ${!!params.background || !!params.color} style="${params.background ? `background-color: ${params.background};` : ""} ${params.color ? `color: ${params.color};` : ""}"
+            >
         <h3 class="list-item-interactive-title">
             ${params.title}
         </h3>
@@ -52,7 +55,7 @@ export function ListItemInteractive(params:ListItemInteractiveParams){
         ${params.main_content}
 
         <section class="list-item-interactive-controls">
-        ${controls}
+        ${controls.join("\n")}
         
         </section>
 
